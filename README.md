@@ -12,7 +12,7 @@ $ cd server && go run stam.go
 
 The server will be listening on port 8080 by default.
 
-# Features
+![demo](stam.png)
 
 # License
 
