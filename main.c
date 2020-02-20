@@ -55,10 +55,10 @@ static struct {
 } usage[ NR_syscalls ] = { 0 };
 
 static void __do_syscall_64_pre(unsigned long nr, struct pt_regs *regs) {
-	long *p, *end= end_of_stack(current);
+	long *p, *end = end_of_stack(current);
 	if (nr >= NR_syscalls)
 		return;
-	p = (void *)(((long)&p - 64) & ~15UL);
+	p = (void *)(((long)&p - 16) & ~15UL);
 	while (p > end) {
 		*p-- = STACK_END_MAGIC;
 	}
@@ -69,6 +69,10 @@ static void __do_syscall_64_post(unsigned long nr, struct pt_regs *regs) {
 
 	if (nr >= NR_syscalls)
 		return;
+	else if (p[0] != STACK_END_MAGIC ||
+		 p[1] != STACK_END_MAGIC)
+		return;
+
 	while (*p == STACK_END_MAGIC) {
 		p++;
 	}
@@ -197,7 +201,8 @@ static ssize_t dev_read(struct file *file, char __user *ptr, size_t len, loff_t 
 	copy_to_user(ptr, (void *)usage + *ppos, nbytes);
 
 	if (nbytes == 0) {
-		memset(usage, 0, sizeof(usage));
+		for (size_t i = 0; i < ARRAY_SIZE(usage); i++)
+			usage[i].hit = usage[i].min = usage[i].max = 0;
 	}
 
 	return *ppos += nbytes, nbytes;
