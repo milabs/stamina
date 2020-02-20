@@ -1,7 +1,7 @@
-MODNAME		?= test
+MODNAME		?= stam
 
 obj-m		+= $(MODNAME).o
-$(MODNAME)-objs	+= stam.o
+$(MODNAME)-objs	+= main.o
 
 ccflags-y	+= -std=gnu99 -fno-stack-protector -fomit-frame-pointer
 ccflags-y	+= -Wno-declaration-after-statement

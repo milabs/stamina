@@ -8,7 +8,10 @@
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
 #include <linux/version.h>
-
+#include <linux/sched.h>
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0)
+#include <linux/sched/task_stack.h>
+#endif
 #include <asm/syscall.h> // NR_syscalls
 
 static long lookup_name(const char *name) {
