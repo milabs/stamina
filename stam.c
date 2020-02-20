@@ -5,8 +5,9 @@
 #include <linux/kallsyms.h>
 #include <linux/slab.h>
 #include <linux/stop_machine.h>
-#include <linux/sched/task_stack.h>
+#include <linux/uaccess.h>
 #include <linux/miscdevice.h>
+#include <linux/version.h>
 
 #include <asm/syscall.h> // NR_syscalls
 
@@ -50,7 +51,7 @@ static struct {
 	long hit, min, max;
 } usage[ NR_syscalls ] = { 0 };
 
-static void do_syscall_64_pre(unsigned long nr, struct pt_regs *regs) {
+static void __do_syscall_64_pre(unsigned long nr, struct pt_regs *regs) {
 	long *p, *end= end_of_stack(current);
 	if (nr >= NR_syscalls)
 		return;
@@ -60,12 +61,11 @@ static void do_syscall_64_pre(unsigned long nr, struct pt_regs *regs) {
 	}
 }
 
-static void do_syscall_64_post(unsigned long nr, struct pt_regs *regs) {
+static void __do_syscall_64_post(unsigned long nr, struct pt_regs *regs) {
 	long *end = end_of_stack(current), *p = end;
 
 	if (nr >= NR_syscalls)
 		return;
-
 	while (*p == STACK_END_MAGIC) {
 		p++;
 	}
@@ -78,6 +78,22 @@ static void do_syscall_64_post(unsigned long nr, struct pt_regs *regs) {
 	else usage[nr].max = depth;
 	usage[nr].hit++;
 }
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 17, 0)
+static void do_syscall_64_post(unsigned long nr, struct pt_regs *regs) {
+	__do_syscall_64_pre(nr, regs);
+}
+static void do_syscall_64_pre(unsigned long nr, struct pt_regs *regs) {
+	__do_syscall_64_post(nr, regs);
+}
+#else
+static void do_syscall_64_post(struct pt_regs *regs) {
+	__do_syscall_64_pre(regs->orig_ax & __SYSCALL_MASK, regs);
+}
+static void do_syscall_64_pre(struct pt_regs *regs) {
+	__do_syscall_64_post(regs->orig_ax & __SYSCALL_MASK, regs);
+}
+#endif
 
 //
 // mov %rdi, %r12
@@ -221,9 +237,10 @@ int init_module(void) {
 		return -EINVAL;
 	}
 
-	pr_debug("do_syscall_64 found at %lx\n", pdo_syscall_64);
-	pr_debug("entry_SYSCALL_64 found at %lx\n", pentry_SYSCALL_64);
-	pr_debug("call to do_syscall_64 found at %lx\n", pcall_do_syscall_64);
+	printk("THREAD_SIZE %lu\n", THREAD_SIZE);
+	printk("do_syscall_64 found at %lx\n", pdo_syscall_64);
+	printk("entry_SYSCALL_64 found at %lx\n", pentry_SYSCALL_64);
+	printk("call to do_syscall_64 found at %lx\n", pcall_do_syscall_64);
 
 	if ((stub = build_stub()) == NULL)
 		return -EINVAL;
