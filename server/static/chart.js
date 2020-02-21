@@ -56,14 +56,16 @@ var redrawCells = function() {
     }
 
     Object.keys(cells).forEach(function(id) {
-	let cell = cells[id]
-	if (cell.name == 'n/a' && (!cell.min && !cell.max && !cell.hit)) {
-	    cell.g.children()[0].fill(chroma('lightgrey').hex())
-	    cell.g.children()[1].text('#' + id + '\nN/A\n')
+	let c = cells[id]
+	if (!c.dirty) return
+	else if (c.name == 'n/a' && (!c.min && !c.max && !c.hit)) {
+	    c.g.children()[0].fill(chroma('lightgrey').hex())
+	    c.g.children()[1].text('#' + id + '\nN/A\n')
 	} else {
-	    cell.g.children()[0].fill(color_scale(cell.max).hex())
-	    cell.g.children()[1].text('#' + id + '\n' + cell.hit + '\n')
+	    c.g.children()[0].fill(color_scale(c.max).hex())
+	    c.g.children()[1].text('#' + id + '\n' + c.hit + '\n')
 	}
+	c.dirty = undefined
     })
 }
 
@@ -76,9 +78,13 @@ var updateCells = function() {
 		    id: id.toString(), name: name,
 		}
 	    }
-	    cells[id].hit = item.Hit
-	    cells[id].min = item.Min
-	    cells[id].max = item.Max
+	    let c = cells[id]
+	    if (c.hit != item.Hit || c.min != item.Min || c.max != item.Max) {
+		c.hit = item.Hit
+		c.min = item.Min
+		c.max = item.Max
+		c.dirty = 1
+	    }
 	})
 	redrawCells()
     })
