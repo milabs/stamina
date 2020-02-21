@@ -2,16 +2,17 @@
 <html>
   <head>
     <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
-    <style>
-      body {
-	  font-family: 'Inconsolata', monospace; font-size: 12px;
-      }
-    </style>
     <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.1.0/chroma.min.js"></script>
     <body>
-      <div id="canvas"></div>
-      <div id="status" style="border: 1px solid grey; visibility: hidden"></div>
+      <table>
+	<tr>
+	  <td id="map" />
+	  <td id="top" />
+	</tr>
+      </table>
+      <div id="map-status" style="border: 1px solid grey; padding: 8px; visibility: hidden"></div>
+      <div id="top-status" style="border: 1px solid grey; padding: 8px; visibility: hidden"></div>
     </body>
     <script src="chart.js"></script>
   </head>
