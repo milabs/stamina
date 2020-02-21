@@ -1,100 +1,96 @@
-var chart = new Chart(document.getElementById("chart"), {
-    type: 'bar', data: {
-        datasets: [
-	    {
-		data: [],
-		label: 'Stack depth (min)',
-		backgroundColor: "#FFB74D",
-		borderWidth: 0,
-	    },
-	    {
-		data: [],
-		label: 'Stack depth (max)',
-		backgroundColor: "#FF5722",
-		borderWidth: 0,
-	    },
-	]
-    },
-    options: {
-	responsive: true,
-        scales: {
-	    xAxes: [{
-		scaleLabel: {
-		    display: true,
-		    labelString: 'syscall number'
-		},
-		gridLines: {
-		    display: false // This removes vertical grid lines
-		},
-		stacked: true,
-	    }],
-            yAxes: [{
-		scaleLabel: {
-		    display: true,
-		    labelString: 'stack size (bytes)'
-		},
-                ticks: {
-                    min: 0,
-                    max: 16384,
-                    stepSize: 512,
-                    beginAtZero: true,
-		    stacked: true,
-                },
-		gridLines: {
-		    drawBorder: false // This removes the yAxis border
-		}
-            }]
-        },
-    }
-});
+var draw = undefined
+var cells = new Object()
+var syscalls = new Object()
+const color_scale = chroma.scale('OrRd').domain([0, 16384])
 
 var getJSON = function(url, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'json';
+    var xhr = new XMLHttpRequest()
+    xhr.open('GET', url, true)
+    xhr.responseType = 'json'
     xhr.onload = function() {
-	var status = xhr.status;
+	var status = xhr.status
 	if (status === 200) {
-            callback(null, xhr.response);
+	    callback(null, xhr.response)
 	} else {
-            callback(status, xhr.response);
+	    callback(status, xhr.response)
 	}
-    };
-    xhr.send();
-};
+    }
+    xhr.send()
+}
 
-function updateBarGraph(chart) {
-    getJSON("stam", function(err, data) {
-	// var hits = new Array()
-	// data.forEach(function(item) {
-	//     hits.push(item.Hit)
-	// })
-	var mins = new Array()
-	data.forEach(function(item) {
-	    mins.push(item.Min)
+var redrawCells = function() {
+    if (draw === undefined) {
+	draw = SVG().addTo('#canvas')
+	draw.on('mouseout', (e) => {
+	    let div = document.getElementById("status")
+	    div.style.visibility = 'hidden'
 	})
-	var maxs = new Array()
-	data.forEach(function(item) {
-	    maxs.push(item.Max)
+
+	var keys = new Array()
+	Object.keys(cells).forEach(function(key) {
+	    if (cells.hasOwnProperty(key))
+		keys.push(key)
 	})
-	chart.data.datasets[0].data = mins
-	chart.data.datasets[1].data = maxs
-	chart.update()
+
+	const cols = 32, size = 32, span = 2
+	const count = keys.sort((a, b) => a - b).length
+
+	for (var id = 0; id < count; id++) {
+	    let c = cells[id], col = id % cols, row = Math.floor(id / cols)
+	    let x = col * (size + span), y = row * (size + span)
+	    let g = draw.group()
+	    g.rect(size, size), g.text('#' + id)
+	    g.on('mouseover', (e) => {
+		let div = document.getElementById("status")
+		div.innerHTML = '<b>' + c.name + '</b><br>' + 'stack-min: ' + c.min.toString() + '<br>' + 'stack-max: ' + c.max.toString()
+		div.style.position = 'absolute'
+		div.style.top = e.y + 16 + 'px'
+		div.style.left = e.x + 16 + 'px'
+		div.style.visibility = 'visible'
+		div.style.background = chroma('yellow').hex()
+	    })
+	    c.g = g.move(x, y)
+	}
+
+	draw.size(cols * (size + span) - span, Math.ceil(count / cols) * (size + span) - span)
+    }
+
+    Object.keys(cells).forEach(function(id) {
+	let cell = cells[id]
+	if (cell.name == 'n/a' && (!cell.min && !cell.max && !cell.hit)) {
+	    cell.g.children()[0].fill(chroma('lightgrey').hex())
+	    cell.g.children()[1].text('#' + id + '\nN/A\n')
+	} else {
+	    cell.g.children()[0].fill(color_scale(cell.max).hex())
+	    cell.g.children()[1].text('#' + id + '\n' + cell.hit + '\n')
+	}
     })
 }
 
-var syscalls = new Map()
-getJSON("syscalls", function(err, data) {
-    var keys = new Array()
-    Object.keys(data).forEach(function(key) {
-	syscalls[key] = data[key]
-	keys.push(key)
+var updateCells = function() {
+    getJSON("stam", function(err, data) {
+	data.forEach((item, id) => {
+	    if (cells[id] === undefined) {
+		let name = (syscalls[id] == undefined) ? 'n/a' : syscalls[id]
+		cells[id] = {
+		    id: id.toString(), name: name,
+		}
+	    }
+	    cells[id].hit = item.Hit
+	    cells[id].min = item.Min
+	    cells[id].max = item.Max
+	})
+	redrawCells()
     })
-    keys.sort((a, b) => a - b).forEach((key) => {
-	chart.data.labels.push(key)
+}
+
+SVG.on(document, 'DOMContentLoaded', function() {
+    getJSON("syscalls", function(err, data) {
+	Object.keys(data).forEach(function(key) {
+	    syscalls[key] = data[key]
+	})
+	setInterval(function () {
+	    updateCells()
+	}, 250)
     })
 })
-
-setInterval(function () {
-    updateBarGraph(chart);
-}, 250);
