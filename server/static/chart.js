@@ -1,4 +1,4 @@
-const THRAD_SIZE = 16384 // FIXME: detect automatically
+const THREAD_SIZE = 16384 // FIXME: detect automatically
 
 var stam = {
 
@@ -17,12 +17,17 @@ var stam = {
 	xhr.send()
     },
 
+    uniq: function(arr, key) {
+	const unique = arr.map(e => e[key]).map((e, i, final) => final.indexOf(e) === i && i).filter(e => arr[e]).map(e => arr[e])
+	return unique
+    },
+
     init: function(timeout) {
 	let self = this
 	self.ajax('syscalls', (err, data) => {
 	    Object.keys(data).forEach((key) => {
 		self.sys_call_table[key] = {
-		    id: parseInt(key), name: data[key],
+		    id: parseInt(key), name: data[key].substr(5),
 		}
 	    })
 	    self.tick(timeout)
@@ -54,6 +59,31 @@ var stam = {
 		}
 	    }
 	})
+	self.tops(data)
+    },
+
+    tops: function(data) {
+	let self = this
+	let items = new Array()
+	const topN = 30
+	data.forEach((item, id) => {
+	    let t = self.sys_call_table[id]
+	    items.push({
+		id: id, name: t.name, max: t.max,
+	    })
+	})
+	items.sort((a, b) => b.max - a.max).slice(0, topN).forEach((item, id) => {
+	    self.topMax.push({
+		id: item.id, name: item.name, max: item.max
+	    })
+	})
+	self.topMax = self.uniq(self.topMax, 'id').sort((a, b) => b.max - a.max).slice(0, topN)
+	let toptext = '<b>TOP ' + topN + ' stack users</b><br>'
+	self.topMax.forEach((item, id) => {
+	    toptext += '[' + item.max + '] ' + item.name + ' (#' + item.id + ')<br>'
+	    //toptext += '<b>#' + item.id + '</b> ' + ' [' + item.max + '] ' + item.name + '<br>'
+	})
+	self.top.innerHTML = toptext
     },
 
     draw: function(data) {
@@ -109,7 +139,7 @@ var stam = {
     top: undefined,
 
     sys_call_table: {},
-    scale: chroma.scale('OrRd').domain([0, THRAD_SIZE]),
+    scale: chroma.scale('OrRd').domain([0, THREAD_SIZE]),
     topHit: [], topMax: [],
 
 }
