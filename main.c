@@ -10,18 +10,40 @@
 #include <linux/version.h>
 #include <linux/sched.h>
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4,11,0)
-#include <linux/sched/task_stack.h>
+# include <linux/sched/task_stack.h>
 #endif
 #include <asm/syscall.h> // NR_syscalls
+#ifdef CONFIG_KPROBES
+# include <linux/kprobes.h>
+#endif
 
-static long lookup_name(const char *name) {
-	long args[2] = { (long)name, 0 };
-	int callback(void *p, const char *s, struct module *m, unsigned long a) {
-		long *args = (void *)p;
-		if (strcmp((char *)args[0], s)) return 0;
-		else return args[1] = a;
-	} kallsyms_on_each_symbol(callback, args);
-	return args[1];
+static long lookupName = 0;
+module_param(lookupName, long, 0);
+
+// kernel module loader STB_WEAK binding hack
+extern __attribute__((weak)) unsigned long kallsyms_lookup_name(const char *);
+
+unsigned long lookup_name(const char *name)
+{
+	static typeof(lookup_name) *lookup = kallsyms_lookup_name;
+#ifdef CONFIG_KPROBES
+	if (NULL == lookup) {
+		struct kprobe probe;
+		int callback(struct kprobe *p, struct pt_regs *regs) {
+			return 0;
+		}
+		memset(&probe, 0, sizeof(probe));
+		probe.pre_handler = callback;
+		probe.symbol_name = "kallsyms_lookup_name";
+		if (!register_kprobe(&probe)) {
+			lookup = (void *)probe.addr;
+			unregister_kprobe(&probe);
+		}
+	}
+#endif
+	if (NULL == lookup)
+		lookup = (void *)lookupName;
+	return lookup ? lookup(name) : 0;
 }
 
 #define kernel_write_enter() asm volatile (	\

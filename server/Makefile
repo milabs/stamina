@@ -1,7 +1,6 @@
 export GOBIN = $(GOPATH)/bin
 
-stam: deps
+stam: FORCE
 	go build *.go
 
-deps:
-	go get ./...
+FORCE:
